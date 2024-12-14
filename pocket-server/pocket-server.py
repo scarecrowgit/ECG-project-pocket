@@ -1,172 +1,95 @@
-import csv
-import time
-import datetime
+import pandas as pd
 import requests
-import threading
-import queue
+import time
+from threading import Thread, Event
+from datetime import datetime
 
 class ECGDataReceiver:
     def __init__(self, 
-                 csv_file_path='../generator/ecg_simulation_data.csv', 
-                 api_endpoint='http://localhost:3000/api/ecg-data',
-                 batch_size=10):
+                 csv_file_path='../ecg_simulation_data.csv', 
+                 api_endpoint='http://localhost:3000/api/ecg-data', 
+                 batch_size=250, 
+                 send_interval=1):
         """
         Initialize ECG Data Receiver
-
+        
         Parameters:
         - csv_file_path: Path to the CSV file with ECG data
         - api_endpoint: URL of the backend API endpoint
         - batch_size: Number of data points to send in each API request
+        - send_interval: Time in seconds between sending batches
         """
         self.csv_file_path = csv_file_path
         self.api_endpoint = api_endpoint
         self.batch_size = batch_size
-        
-        # Data queue for thread-safe processing
-        self.data_queue = queue.Queue()
-        
-        # Flags for controlling threads
-        self.is_running = False
-    
-    def read_csv_data(self):
-        """
-        Read ECG data from CSV file
-        
-        Returns:
-        List of dictionaries with ECG data and timestamps
-        """
-        ecg_data = []
-        try:
-            with open(self.csv_file_path, 'r') as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    ecg_data.append({
-                        'timestamp': datetime.datetime.now().isoformat(),
-                        'time': float(row['time']),
-                        'ecg_signal': float(row['ecg_signal'])
-                    })
-        except FileNotFoundError:
-            print(f"Error: CSV file {self.csv_file_path} not found.")
-            return []
-        except Exception as e:
-            print(f"Error reading CSV: {e}")
-            return []
-        
-        return ecg_data
-    
+        self.send_interval = send_interval
+        self.stop_event = Event()
+        self.last_sent_row = 0  # To track the last row processed
+
     def send_data_to_api(self, data_batch):
         """
-        Send data batch to backend API
-        
-        Parameters:
-        - data_batch: List of data points to send
-        
-        Returns:
-        Boolean indicating success or failure
+        Send a batch of data to the backend API
         """
         try:
-            response = requests.post(
-                self.api_endpoint, 
-                json=data_batch,
-                headers={'Content-Type': 'application/json'}
-            )
-            
+            response = requests.post(self.api_endpoint, json=data_batch)
             if response.status_code in [200, 201]:
-                print(f"Successfully sent {len(data_batch)} data points")
-                return True
+                print(f"Sent {len(data_batch)} data points successfully.")
             else:
                 print(f"Failed to send data. Status code: {response.status_code}")
-                return False
-        
         except requests.RequestException as e:
             print(f"API Request Error: {e}")
-            return False
     
-    def process_data_thread(self):
+    def process_data(self):
         """
-        Thread for processing and sending data
+        Continuously read CSV data and send it to the backend at intervals
         """
-        ecg_data = self.read_csv_data()
-        data_batch = []
-        
-        for data_point in ecg_data:
-            if not self.is_running:
-                break
-            
-            data_batch.append(data_point)
-            
-            # Send batch when full
-            if len(data_batch) >= self.batch_size:
-                self.send_data_to_api(data_batch)
-                data_batch = []
-        
-        # Send any remaining data
-        if data_batch:
-            self.send_data_to_api(data_batch)
-    
+        while not self.stop_event.is_set():
+            try:
+                # Read only new data since the last sent row
+                data = pd.read_csv(self.csv_file_path, names=['time', 'ecg_signal'], header=None, skiprows=self.last_sent_row)
+                if not data.empty:
+                    # Add a unique timestamp for each row
+                    data['timestamp'] = [datetime.now().isoformat() for _ in range(len(data))]
+                    
+                    # Remove 'time' field
+                    data.drop(columns=['time'], inplace=True)
+
+                    # Process in batches
+                    for i in range(0, len(data), self.batch_size):
+                        batch = data.iloc[i:i+self.batch_size].to_dict(orient='records')
+                        self.send_data_to_api(batch)
+
+                        # Pause for the specified interval between sending batches
+                        if not self.stop_event.is_set():
+                            time.sleep(self.send_interval)
+
+                    # Update the last row sent
+                    self.last_sent_row += len(data)
+            except FileNotFoundError:
+                print(f"CSV file {self.csv_file_path} not found. Retrying...")
+                time.sleep(self.send_interval)
+            except Exception as e:
+                print(f"Error: {e}")
+                time.sleep(self.send_interval)
+
     def start(self):
         """
-        Start data receiver and sender
+        Start the processing thread
         """
-        self.is_running = True
-        
-        # Create thread
-        process_thread = threading.Thread(target=self.process_data_thread)
-        
-        # Start thread
-        process_thread.start()
-        
-        return process_thread
-    
+        self.thread = Thread(target=self.process_data)
+        self.thread.start()
+
     def stop(self):
         """
-        Stop data receiver and sender
+        Stop the processing thread
         """
-        self.is_running = False
-        print("Stopping ECG data receiver...")
-
-def main():
-    # Example usage
-    receiver = ECGDataReceiver(
-        csv_file_path='../generator/ecg_simulation_data.csv',
-        api_endpoint='http://localhost:3000/api/ecg-data',
-        batch_size=10
-    )
-    
-    try:
-        # Start receiving and sending data
-        thread = receiver.start()
-        
-        # Wait for thread to complete
-        thread.join()
-    
-    except KeyboardInterrupt:
-        print("Manually stopped")
-    
-    finally:
-        # Stop the receiver
-        receiver.stop()
+        self.stop_event.set()
+        self.thread.join()
+        print("ECG Data Receiver stopped.")
 
 if __name__ == '__main__':
-    main()
-
-"""
-Key Features:
-1. CSV data processing
-2. Adds timestamps to data points
-3. API data sending
-4. Batch processing
-5. Error handling
-
-Required Dependencies:
-- requests
-
-Installation:
-pip install requests
-
-Usage:
-1. Configure API endpoint
-2. Ensure CSV file is available
-3. Run the script
-4. Adjust batch size as needed
-"""
+    receiver = ECGDataReceiver()
+    try:
+        receiver.start()
+    except KeyboardInterrupt:
+        receiver.stop()
