@@ -7,7 +7,7 @@ import queue
 
 class ECGDataReceiver:
     def __init__(self, 
-                 csv_file_path='ecg_simulation_data.csv', 
+                 csv_file_path='../generator/ecg_simulation_data.csv', 
                  api_endpoint='http://localhost:3000/api/ecg-data',
                  batch_size=10):
         """
@@ -128,7 +128,7 @@ class ECGDataReceiver:
 def main():
     # Example usage
     receiver = ECGDataReceiver(
-        csv_file_path='ecg_simulation_data.csv',
+        csv_file_path='../generator/ecg_simulation_data.csv',
         api_endpoint='http://localhost:3000/api/ecg-data',
         batch_size=10
     )
