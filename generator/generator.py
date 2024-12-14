@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.signal as signal
 
@@ -97,24 +96,6 @@ class ECGSimulator:
         
         return q_wave + r_wave + s_wave
     
-    def plot_signal(self, save_path=None):
-        """
-        Plot the generated ECG signal
-        
-        Parameters:
-        - save_path: Optional file path to save the plot
-        """
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.time, self.ecg_signal)
-        plt.title(f'Simulated ECG Signal (Heart Rate: {self.heart_rate} BPM)')
-        plt.xlabel('Time (seconds)')
-        plt.ylabel('Amplitude')
-        plt.grid(True)
-        
-        if save_path:
-            plt.savefig(save_path)
-        plt.show()
-    
     def export_to_csv(self, filename='ecg_data.csv'):
         """
         Export ECG signal to CSV file
@@ -154,9 +135,6 @@ def main():
         noise_level=0.05  # 5% noise
     )
     
-    # Plot the signal
-    ecg_sim.plot_signal(save_path='ecg_signal_plot.png')
-    
     # Export to CSV
     ecg_sim.export_to_csv('ecg_simulation_data.csv')
     
@@ -168,16 +146,13 @@ if __name__ == '__main__':
 
 """
 Key Features:
-1. Configurable ECG signal generation
+1. ECG signal generation
 2. Realistic simulation of P, QRS, and T waves
-3. Noise addition
-4. Plotting functionality
-5. CSV export
-6. Heart rate estimation
+3. CSV export
+4. Heart rate estimation
 
 Usage Instructions:
 - Adjust parameters in ECGSimulator initialization
-- Run the script to generate and visualize ECG data
-- Uses matplotlib for visualization
+- Run the script to generate ECG data
 - Exports data to CSV for further analysis
 """
