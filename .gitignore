@@ -1,1 +1,3 @@
 venv/
+generator/ecg_signal_plot.png
+generator/ecg_simulation_data.csv
