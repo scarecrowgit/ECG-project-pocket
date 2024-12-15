@@ -1,32 +1,26 @@
 import numpy as np
 import pandas as pd
 import time
+import os
+from dotenv import load_dotenv
 
 class ECGSimulator:
-    def __init__(self, 
-                 duration=1,  # seconds of data generated in each iteration
-                 sampling_rate=250,  # Hz
-                 heart_rate=72,  # beats per minute
-                 noise_level=0.05,
-                 output_file='../ecg_simulation_data.csv'):
+    def __init__(self):
         """
-        Initialize ECG Simulator with configurable parameters
-        
-        Parameters:
-        - duration: Duration of data per iteration (seconds)
-        - sampling_rate: Number of samples per second
-        - heart_rate: Simulated heart rate in beats per minute
-        - noise_level: Amount of random noise to add to the signal
-        - output_file: File to write the data continuously
+        Initialize ECG Simulator with configurable parameters from the .env file
         """
-        self.duration = duration
-        self.sampling_rate = sampling_rate
-        self.heart_rate = heart_rate
-        self.noise_level = noise_level
-        self.output_file = output_file
+        # Load environment variables from .env file
+        load_dotenv()
+
+        self.duration = float(os.getenv("DURATION", 1))
+        self.sampling_rate = int(os.getenv("SAMPLING_RATE", 250))
+        self.heart_rate = int(os.getenv("HEART_RATE", 72))
+        self.noise_level = float(os.getenv("NOISE_LEVEL", 0.05))
+        self.amplitude = float(os.getenv("AMPLITUDE", 1.0))
+        self.output_file = os.getenv("OUTPUT_FILE", "../ecg_simulation_data.csv")
         
         # Generate time array
-        self.time = np.linspace(0, duration, int(duration * sampling_rate), endpoint=False)
+        self.time = np.linspace(0, self.duration, int(self.duration * self.sampling_rate), endpoint=False)
         
     def _generate_ecg_signal(self):
         """
@@ -45,13 +39,13 @@ class ECGSimulator:
         noise = np.random.normal(0, self.noise_level, self.time.shape)
         return signal_base + noise
     
-    def _qrs_complex(self, x, center, amplitude=1.0):
+    def _qrs_complex(self, x, center):
         """
         Generate a simplified QRS complex
         """
-        q_wave = self._gaussian_wave(x, center-0.05, amplitude=-0.5, width=0.02)
-        r_wave = self._gaussian_wave(x, center, amplitude=amplitude, width=0.03)
-        s_wave = self._gaussian_wave(x, center+0.05, amplitude=-0.3, width=0.02)
+        q_wave = self._gaussian_wave(x, center-0.05, amplitude=-0.5 * self.amplitude, width=0.02)
+        r_wave = self._gaussian_wave(x, center, amplitude=self.amplitude, width=0.03)
+        s_wave = self._gaussian_wave(x, center+0.05, amplitude=-0.3 * self.amplitude, width=0.02)
         return q_wave + r_wave + s_wave
     
     def _gaussian_wave(self, x, center, amplitude=1.0, width=0.1):
@@ -72,5 +66,5 @@ class ECGSimulator:
             time.sleep(self.duration)  # Simulate real-time behavior
 
 if __name__ == '__main__':
-    generator = ECGSimulator(output_file='../ecg_simulation_data.csv')
+    generator = ECGSimulator()
     generator.write_data()

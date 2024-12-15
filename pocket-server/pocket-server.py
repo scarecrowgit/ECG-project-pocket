@@ -3,26 +3,22 @@ import requests
 import time
 from threading import Thread, Event
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 class ECGDataReceiver:
-    def __init__(self, 
-                 csv_file_path='../ecg_simulation_data.csv', 
-                 api_endpoint='http://localhost:8000/api/ecg-data', 
-                 batch_size=250, 
-                 send_interval=1):
+    def __init__(self):
         """
-        Initialize ECG Data Receiver
-        
-        Parameters:
-        - csv_file_path: Path to the CSV file with ECG data
-        - api_endpoint: URL of the backend API endpoint
-        - batch_size: Number of data points to send in each API request
-        - send_interval: Time in seconds between sending batches
+        Initialize ECG Data Receiver with configurable parameters from the .env file
         """
-        self.csv_file_path = csv_file_path
-        self.api_endpoint = api_endpoint
-        self.batch_size = batch_size
-        self.send_interval = send_interval
+        # Load environment variables from .env file
+        load_dotenv()
+
+        self.user_id = os.getenv('USER_ID', '67FD20')
+        self.csv_file_path = os.getenv('CSV_FILE_PATH', '../ecg_simulation_data.csv')
+        self.api_endpoint = os.getenv('API_ENDPOINT', 'http://localhost:8000/api/ecg-data')
+        self.batch_size = int(os.getenv('BATCH_SIZE', 250))
+        self.send_interval = int(os.getenv('SEND_INTERVAL', 1))
         self.stop_event = Event()
         self.last_sent_row = 0  # To track the last row processed
 
@@ -31,7 +27,7 @@ class ECGDataReceiver:
         Send a batch of data to the backend API
         """
         try:
-            response = requests.post(self.api_endpoint, json=data_batch)
+            response = requests.post(self.api_endpoint, json={'user_id': self.user_id, 'data': data_batch})
             if response.status_code in [200, 201]:
                 print(f"Sent {len(data_batch)} data points successfully.")
             else:
