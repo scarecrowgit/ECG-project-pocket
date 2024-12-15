@@ -7,7 +7,7 @@ from datetime import datetime
 class ECGDataReceiver:
     def __init__(self, 
                  csv_file_path='../ecg_simulation_data.csv', 
-                 api_endpoint='http://localhost:3000/api/ecg-data', 
+                 api_endpoint='http://localhost:8000/api/ecg-data', 
                  batch_size=250, 
                  send_interval=1):
         """
